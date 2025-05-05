@@ -8,12 +8,9 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.utils import load_img, plot_model
 from tensorflow.keras.layers import Conv2D, Dense, BatchNormalization, Activation, Dropout, MaxPooling2D, Flatten
-from tensorflow.keras.optimizers import Adam, RMSprop, SGD
+from tensorflow.keras.optimizers import Adam, RMSprop, SGD  # ใช้ Adam เวอร์ชันใหม่
 from tensorflow.keras import regularizers
-from tensorflow.keras.callbacks import (
-    ModelCheckpoint, CSVLogger, TensorBoard, EarlyStopping, ReduceLROnPlateau
-)
-
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard, EarlyStopping, ReduceLROnPlateau
 
 # %%
 train_dir = '/home/cael/Project/FER2013/archive/train/'
@@ -101,14 +98,19 @@ def get_model(input_size, classes=7):
     model.add(Dense(classes, activation='softmax'))
 
     #Compliling the model
-    model.compile(optimizer=Adam(lr=0.0001, decay=1e-6), 
+    model.compile(optimizer=Adam(learning_rate=0.0001, decay=1e-6), 
                   loss='categorical_crossentropy', 
                   metrics=['accuracy'])
     return model
 
 # %%
-fernet = get_model((row,col,1), classes)
-fernet.summary()
+fernet = get_model((row, col, 1), classes) 
+fernet.compile(
+    optimizer=Adam(learning_rate=0.0001), 
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+fernet.summary() 
 
 # %%
 plot_model(fernet, to_file='fernet.png', show_shapes=True, show_layer_names=True)
@@ -117,29 +119,27 @@ plot_model(fernet, to_file='fernet.png', show_shapes=True, show_layer_names=True
 chk_path = 'ferNet.h5'
 log_dir = "checkpoint/logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-checkpoint = ModelCheckpoint(filepath=chk_path,
-                             save_best_only=True,
-                             verbose=1,
-                             mode='min',
-                             moniter='val_loss')
-
-earlystop = EarlyStopping(monitor='val_loss', 
-                          min_delta=0, 
-                          patience=3, 
-                          verbose=1, 
-                          restore_best_weights=True)
-                        
+# การประกาศ callbacks
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', 
                               factor=0.2, 
                               patience=6, 
                               verbose=1, 
                               min_delta=0.0001)
 
+checkpoint = ModelCheckpoint(filepath=chk_path,
+                             save_best_only=True,
+                             verbose=1,
+                             mode='min',
+                             monitor='val_loss')  # ใช้ 'monitor' แทน 'moniter'
 
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+earlystop = EarlyStopping(monitor='val_loss', 
+                          min_delta=0, 
+                          patience=3, 
+                          verbose=1, 
+                          restore_best_weights=True)
+
 csv_logger = CSVLogger('training.log')
-
-callbacks = [checkpoint, reduce_lr, csv_logger]
+callbacks = [checkpoint, earlystop, reduce_lr, csv_logger]
 
 # %%
 steps_per_epoch = training_set.n // training_set.batch_size
